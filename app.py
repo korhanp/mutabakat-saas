@@ -4,6 +4,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
+# Güvenli Oturum Ayarları
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
     SESSION_COOKIE_SECURE=True,
@@ -37,7 +38,7 @@ HTML_SABLONU = """
     <main class="max-w-7xl mx-auto px-4 py-8">
         {% if hata_mesaji %}
         <div class="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl text-sm text-red-800">
-            ⚠️ <strong>Bağlantı Hatası:</strong> {{ hata_mesaji }}
+            ⚠️ <strong>Bağlantı Durumu:</strong> {{ hata_mesaji }}
         </div>
         {% endif %}
 
@@ -176,4 +177,4 @@ def ana_sayfa():
                                     "gercek_desi": gercek_desi, "faturadaki_desi": faturadaki_desi, "zarar": zarar
                                 })
             else:
-                return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=[], toplam_zarar=0, toplam_siparis=0, aktif_magaza="Oturum Açılmadı", oturum_aktif=False, hata_mesaji="Trendyol API şifreleriniz hatalı veya yetkiniz yok.")
+                hata_mesaji = "Trendyol API şifreleriniz hatalı veya yetkiniz yok."
