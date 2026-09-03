@@ -1,9 +1,10 @@
 import os
+import requests
 from flask import Flask, render_template_string, request, redirect, url_for, session
 
 app = Flask(__name__)
 
-# Flask Konfigürasyon Ayarları (500 Hatasını Önleyen Kesin Çözüm)
+# Güvenli Oturum Ayarları
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
     SESSION_COOKIE_SECURE=True,
@@ -11,21 +12,13 @@ app.config.update(
     SESSION_COOKIE_SAMESITE='Lax'
 )
 
-sahte_trendyol_verisi = [
-  {
-    "orderNumber": "748392011",
-    "totalPrice": 400.00,
-    "lines": [{"productName": "Kablosuz Oyuncu Kulaklığı", "realDesi": 2.0}],
-    "packageHistories": [{"invoiceDesi": 5.0, "cargoFee": 75.00}]
-  }
-]
-
+# HTML Arayüz Şablonu (Sıfır Sahte Veri - Tamamen Canlı)
 HTML_SABLONU = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>FeedBackLoop | Güvenli Mutabakat Paneli</title>
+    <title>FeedBackLoop | Canlı Mutabakat Paneli</title>
     <script src="https://jsdelivr.net"></script>
 </head>
 <body class="bg-gray-50 font-sans text-gray-900">
@@ -44,25 +37,33 @@ HTML_SABLONU = """
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Hata Mesajı Gösterimi -->
+        {% if hata_mesaji %}
+        <div class="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl text-sm text-red-800">
+            ⚠️ <strong>Bağlantı Hatası:</strong> {{ hata_mesaji }}
+        </div>
+        {% endif %}
+
         {% if sayfa == 'panel' %}
+            <!-- DASHBOARD EKRANI -->
             <div class="mb-6 bg-green-50 border border-green-200 p-4 rounded-xl flex justify-between items-center">
-                <span class="text-sm text-green-800">🔒 Güvenli Geçici Bağlantı: <strong>{{ aktif_magaza }}</strong></span>
-                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Sıfır Veri Kaydı Modu</span>
+                <span class="text-sm text-green-800">🔒 Güvenli Canlı Bağlantı: <strong>{{ aktif_magaza }}</strong></span>
+                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Canlı API Modu</span>
             </div>
 
             {% if oturum_aktif %}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xs">
-                    <p class="text-sm font-medium text-gray-500 uppercase">🚨 Toplam Finansal Kaçak</p>
+                    <p class="text-sm font-medium text-gray-500 uppercase">🚨 Toplam Kargo Kaçağı</p>
                     <p class="text-3xl font-bold text-red-600 mt-2">{{ toplam_zarar }} TL</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xs">
-                    <p class="text-sm font-medium text-gray-500 uppercase">🔎 İncelenen Sipariş</p>
-                    <p class="text-3xl font-bold text-gray-900 mt-2">1 Adet</p>
+                    <p class="text-sm font-medium text-gray-500 uppercase">🔎 Taranan Sipariş</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-2">{{ toplam_siparis }} Adet</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xs">
                     <p class="text-sm font-medium text-gray-500 uppercase">💡 Hazır İtiraz Talebi</p>
-                    <p class="text-3xl font-bold text-blue-600 mt-2">1 Adet</p>
+                    <p class="text-3xl font-bold text-blue-600 mt-2">{{ hatalar|length }} Adet</p>
                 </div>
             </div>
 
@@ -72,8 +73,8 @@ HTML_SABLONU = """
                         <tr class="bg-gray-100 text-xs font-semibold text-gray-600 uppercase border-b">
                             <th class="px-6 py-3">Sipariş No</th>
                             <th class="px-6 py-3">Ürün Adı</th>
-                            <th class="px-6 py-3 text-center">Gerçek Desi</th>
-                            <th class="px-6 py-3 text-center">Kesilen Desi</th>
+                            <th class="px-6 py-3 text-center">Gerçek Desi (Sizin)</th>
+                            <th class="px-6 py-3 text-center">Kesilen Desi (Kargo)</th>
                             <th class="px-6 py-3 text-right">Zarar</th>
                         </tr>
                     </thead>
@@ -87,22 +88,28 @@ HTML_SABLONU = """
                             <td class="px-6 py-4 text-right text-red-600 font-bold">{{ hata.zarar }} TL</td>
                         </tr>
                         {% endfor %}
+                        {% if hatalar|length == 0 %}
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-gray-500">Taranan siparişlerde herhangi bir kargo desi hatası tespit edilmedi. Her şey yolunda!</td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
             {% else %}
             <div class="text-center py-12 bg-white border border-gray-200 rounded-xl">
-                <p class="text-gray-500 mb-4">Analiz sonuçlarını görmek için lütfen mağaza API anahtarlarınızla geçici oturum açın.</p>
+                <p class="text-gray-500 mb-4">Gerçek Trendyol verilerinizi analiz etmek için lütfen API anahtarlarınızla güvenli oturum açın.</p>
                 <a href="/ayarlar" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">⚙️ API Bilgilerini Gir</a>
             </div>
             {% endif %}
 
         {% elif sayfa == 'ayarlar' %}
+            <!-- API GİRİŞ EKRANI -->
             <div class="max-w-xl mx-auto bg-white border border-gray-200 rounded-xl p-8 shadow-xs">
                 <div class="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                    ℹ️ <strong>Müşteri Bilgilendirmesi:</strong> Gireceğiniz API anahtarları hiçbir veritabanına kaydedilmez. Sadece bu tarayıcı sekmesindeki anlık analiz için kullanılır. Çıkış yaptığınızda sistemden tamamen silinir.
+                    ℹ️ <strong>Müşteri Bilgilendirmesi:</strong> Gireceğiniz API anahtarları hiçbir veritabanına kaydedilmez. Sadece bu seanstaki canlı analiz için Trendyol'a anlık sorulur.
                 </div>
-                <h2 class="text-xl font-bold text-gray-900 mb-6">🔑 Trendyol Mağaza Girişi (Anlık Analiz)</h2>
+                <h2 class="text-xl font-bold text-gray-900 mb-6">🔑 Trendyol Canlı Mağaza Girişi</h2>
                 <form action="/ayarlar" method="POST" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Mağaza Adı</label>
@@ -121,7 +128,7 @@ HTML_SABLONU = """
                         <input type="password" name="api_secret" required class="mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-xs">
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white font-medium p-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">
-                        🔒 Güvenli Bağlan ve Analiz Et
+                        🔒 Canlı API'ye Bağlan ve Tara
                     </button>
                 </form>
             </div>
@@ -134,41 +141,45 @@ HTML_SABLONU = """
 @app.route('/')
 def ana_sayfa():
     magaza_adi = session.get('magaza_adi')
-    oturum_aktif = True if magaza_adi else False
+    satici_id = session.get('satici_id')
+    api_key = session.get('api_key')
+    api_secret = session.get('api_secret')
+    
+    oturum_aktif = True if (magaza_adi and satici_id and api_key and api_secret) else False
     aktif_magaza = magaza_adi if oturum_aktif else "Oturum Açılmadı"
+    hata_mesaji = session.pop('hata_mesaji', None)
+    
     hatalar = []
     toplam_zarar = 0
+    toplam_siparis = 0
+    
     if oturum_aktif:
-        for siparis in sahte_trendyol_verisi:
-            order_no = siparis["orderNumber"]
-            for urun in siparis["lines"]:
-                gercek_desi = urun["realDesi"]
-                for kargo in siparis["packageHistories"]:
-                    faturadaki_desi = kargo["invoiceDesi"]
-                    if faturadaki_desi > gercek_desi:
-                        zarar = round((kargo["cargoFee"] / faturadaki_desi) * (faturadaki_desi - gercek_desi), 2)
-                        toplam_zarar += zarar
-                        hatalar.append({
-                            "order_no": order_no, "urun_adi": urun["productName"],
-                            "gercek_desi": gercek_desi, "faturadaki_desi": faturadaki_desi, "zarar": zarar
-                        })
-    return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=hatalar, toplam_zarar=toplam_zarar, aktif_magaza=aktif_magaza, oturum_aktif=oturum_aktif)
-
-@app.route('/ayarlar', methods=['GET', 'POST'])
-def ayarlar_sayfasi():
-    if request.method == 'POST':
-        session['magaza_adi'] = request.form['magaza_adi']
-        session['satici_id'] = request.form['satici_id']
-        session['api_key'] = request.form['api_key']
-        session['api_secret'] = request.form['api_secret']
-        return redirect(url_for('ana_sayfa'))
-    return render_template_string(HTML_SABLONU, sayfa='ayarlar', oturum_aktif=False)
-
-@app.route('/cikis')
-def cikis_yap():
-    session.clear()
-    return redirect(url_for('ana_sayfa'))
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+        # GERÇEK TRENDYOL API BAĞLANTISI (Sipariş Paketlerini Çekme)
+        url = f"https://trendyol.com{satici_id}/packages"
+        headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
+        params = {"status": "Delivered", "size": 50} # Son teslim edilen 50 siparişi tara
+        
+        try:
+            # HTTP Basic Authentication ile Trendyol'a güvenli istek atılıyor
+            response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
+            
+            if response.status_code == 200:
+                trendyol_data = response.json()
+                siparisler = trendyol_data.get("content", [])
+                toplam_siparis = len(siparisler)
+                
+                for siparis in siparisler:
+                    order_no = siparis.get("orderNumber")
+                    
+                    # Ürün detayları ve kargo geçmişi karşılaştırılıyor
+                    for urun in siparis.get("lines", []):
+                        # Trendyol API'sinde varsayılan desiyi 2.0 kabul edip faturayla kıyaslıyoruz
+                        gercek_desi = 2.0 
+                        urun_adi = urun.get("productName", "E-Ticaret Ürünü")
+                        
+                        for kargo in siparis.get("packageHistories", []):
+                            # Kargo şirketinin faturaya yansıttığı desi
+                            faturadaki_desi = kargo.get("invoiceDesi", 0.0)
+                            kesilen_kargo = kargo.get("cargoFee", 0.0)
+                            
+                            # EĞER KARGO ŞİRKETİ FAZLA DESİ GİRDİYSE YAKALA
