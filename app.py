@@ -4,10 +4,10 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
-# 500 Hatasını Engelleyen Bulut Uyumlu Yeni Konfigürasyon Ayarları
+# Güvenli Oturum Ayarları
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
-    SESSION_COOKIE_SECURE=False,  # Render ücretsiz alt alan adlarında (HTTP/HTTPS proxy) çökmeyi engeller
+    SESSION_COOKIE_SECURE=False,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax'
 )
@@ -134,16 +134,6 @@ HTML_SABLONU = """
 </html>
 """
 
-def trendyol_api_tara(satici_id, api_key, api_secret):
-    url = f"https://trendyol.com{satici_id}/packages"
-    headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
-    params = {"status": "Delivered", "size": 50}
-    try:
-        res = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
-        return res
-    except Exception:
-        return None
-
 @app.route('/')
 def ana_sayfa():
     magaza_adi = session.get('magaza_adi')
@@ -153,11 +143,15 @@ def ana_sayfa():
     
     oturum_aktif = True if (magaza_adi and satici_id and api_key and api_secret) else False
     aktif_magaza = magaza_adi if oturum_aktif else "Oturum Açılmadı"
-    
     hata_mesaji = session.pop('hata_mesaji', None)
+    
     hatalar = []
     toplam_zarar = 0
     toplam_siparis = 0
     
     if oturum_aktif:
-        response = trendyol_api_tara(satici_id, api_key, api_secret)
+        url = f"https://trendyol.com{satici_id}/packages"
+        headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
+        params = {"status": "Delivered", "size": 50}
+        
+        try:
