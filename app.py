@@ -53,7 +53,7 @@ HTML_SABLONU = """
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xs">
                     <p class="text-sm font-medium text-gray-500 uppercase">💡 Hazır İtiraz Talebi</p>
-                    <p class="text-3xl font-bold text-blue-600 mt-2">{{ hatalar|length }} Adet</p>
+                    <p class="text-3xl font-bold text-blue-600 mt-2">{{ hata_sayisi }} Adet</p>
                 </div>
             </div>
 
@@ -78,7 +78,7 @@ HTML_SABLONU = """
                             <td class="px-6 py-4 text-right text-red-600 font-bold">{{ hata.zarar }} TL</td>
                         </tr>
                         {% endfor %}
-                        {% if hatalar|length == 0 %}
+                        {% if hata_sayisi == 0 %}
                         <tr>
                             <td colspan="5" class="text-center py-8 text-gray-500">Taranan siparişlerde herhangi bir kargo desi hatası tespit edilmedi. Her şey yolunda!</td>
                         </tr>
@@ -122,17 +122,17 @@ HTML_SABLONU = """
                 </form>
             </div>
         {% endif %}
-    </nav>
+    </main>
 </body>
 </html>
 """
 
 @app.route('/')
 def ana_sayfa():
-    magaza_adi = session.get('magaza_adi')
-    satici_id = session.get('satici_id')
-    api_key = session.get('api_key')
-    api_secret = session.get('api_secret')
+    magaza_adi = session.get('magaza_adi', None)
+    satici_id = session.get('satici_id', None)
+    api_key = session.get('api_key', None)
+    api_secret = session.get('api_secret', None)
     
     oturum_aktif = True if (magaza_adi and satici_id and api_key and api_secret) else False
     aktif_magaza = magaza_adi if oturum_aktif else "Oturum Açılmadı"
@@ -147,7 +147,6 @@ def ana_sayfa():
         headers = {"User-Agent": str(satici_id)}
         params = {"status": "Delivered", "size": 50}
         
-        # Try-except yapısı tek satıra indirgendi, çökme riski tamamen engellendi
         try:
             response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
             status_kod = response.status_code
@@ -155,9 +154,4 @@ def ana_sayfa():
             status_kod = 500
 
         if status_kod == 200:
-            trendyol_data = response.json()
-            siparisler = trendyol_data.get("content", [])
-            toplam_siparis = len(siparisler)
-            
-            for siparis in siparisler:
-                order_no = siparis.get("orderNumber")
+            try:
