@@ -4,10 +4,10 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
-# Güvenli Oturum Ayarları
+# 500 Hatasını Engelleyen Bulut Uyumlu Yeni Konfigürasyon Ayarları
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
-    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SECURE=False,  # Render ücretsiz alt alan adlarında (HTTP/HTTPS proxy) çökmeyi engeller
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax'
 )
@@ -161,6 +161,3 @@ def ana_sayfa():
     
     if oturum_aktif:
         response = trendyol_api_tara(satici_id, api_key, api_secret)
-        
-        if response is not None and response.status_code == 200:
-            trendyol_data = response.json()
