@@ -3,12 +3,14 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
-# Oturum (Session) verilerini şifrelemek için rastgele güvenli bir anahtar
-app.secret_key = "KargoMutabakatGuzelGuvenceKeyi98765!"
+# Flask Konfigürasyon Ayarları (500 Hatasını Önleyen Kesin Çözüm)
+app.config.update(
+    SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
 
-
-
-# Örnek Trendyol Sipariş Verisi (Analiz motoru için)
 sahte_trendyol_verisi = [
   {
     "orderNumber": "748392011",
@@ -18,7 +20,6 @@ sahte_trendyol_verisi = [
   }
 ]
 
-# HTML ve CSS Arayüz Şablonu (Sıfır Veritabanı - Tam Güvenlik)
 HTML_SABLONU = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -44,7 +45,6 @@ HTML_SABLONU = """
 
     <main class="max-w-7xl mx-auto px-4 py-8">
         {% if sayfa == 'panel' %}
-            <!-- DASHBOARD EKRANI -->
             <div class="mb-6 bg-green-50 border border-green-200 p-4 rounded-xl flex justify-between items-center">
                 <span class="text-sm text-green-800">🔒 Güvenli Geçici Bağlantı: <strong>{{ aktif_magaza }}</strong></span>
                 <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Sıfır Veri Kaydı Modu</span>
@@ -98,13 +98,11 @@ HTML_SABLONU = """
             {% endif %}
 
         {% elif sayfa == 'ayarlar' %}
-            <!-- API GİRİŞ EKRANI -->
             <div class="max-w-xl mx-auto bg-white border border-gray-200 rounded-xl p-8 shadow-xs">
                 <div class="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                    ℹ️ <strong>Müşteri Bilgilendirmesi:</strong> Gireceğiniz API anahtarları hiçbir veritabanına <u>kaydedilmez</u>. Sadece bu tarayıcı sekmesindeki anlık analiz için kullanılır. Çıkış yaptığınızda sistemden tamamen silinir.
+                    ℹ️ <strong>Müşteri Bilgilendirmesi:</strong> Gireceğiniz API anahtarları hiçbir veritabanına kaydedilmez. Sadece bu tarayıcı sekmesindeki anlık analiz için kullanılır. Çıkış yaptığınızda sistemden tamamen silinir.
                 </div>
                 <h2 class="text-xl font-bold text-gray-900 mb-6">🔑 Trendyol Mağaza Girişi (Anlık Analiz)</h2>
-                
                 <form action="/ayarlar" method="POST" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Mağaza Adı</label>
@@ -133,19 +131,14 @@ HTML_SABLONU = """
 </html>
 """
 
-# 3. Hafızasız Yönlendirme ve Analiz Motoru
 @app.route('/')
 def ana_sayfa():
-    # Veritabanı yok! Bilgileri sadece tarayıcı oturumundan (session) okuyoruz
     magaza_adi = session.get('magaza_adi')
     oturum_aktif = True if magaza_adi else False
     aktif_magaza = magaza_adi if oturum_aktif else "Oturum Açılmadı"
-    
     hatalar = []
     toplam_zarar = 0
-    
     if oturum_aktif:
-        # Mutabakat analiz algoritması çalışıyor
         for siparis in sahte_trendyol_verisi:
             order_no = siparis["orderNumber"]
             for urun in siparis["lines"]:
@@ -159,15 +152,23 @@ def ana_sayfa():
                             "order_no": order_no, "urun_adi": urun["productName"],
                             "gercek_desi": gercek_desi, "faturadaki_desi": faturadaki_desi, "zarar": zarar
                         })
-
-    return render_template_string(
-        HTML_SABLONU, sayfa='panel', hatalar=hatalar, 
-        toplam_zarar=toplam_zarar, aktif_magaza=aktif_magaza, oturum_aktif=oturum_aktif
-    )
+    return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=hatalar, toplam_zarar=toplam_zarar, aktif_magaza=aktif_magaza, oturum_aktif=oturum_aktif)
 
 @app.route('/ayarlar', methods=['GET', 'POST'])
 def ayarlar_sayfasi():
     if request.method == 'POST':
-        # Bilgileri disk/veritabanı yerine GEÇİCİ olarak tarayıcı hafızasına al
         session['magaza_adi'] = request.form['magaza_adi']
         session['satici_id'] = request.form['satici_id']
+        session['api_key'] = request.form['api_key']
+        session['api_secret'] = request.form['api_secret']
+        return redirect(url_for('ana_sayfa'))
+    return render_template_string(HTML_SABLONU, sayfa='ayarlar', oturum_aktif=False)
+
+@app.route('/cikis')
+def cikis_yap():
+    session.clear()
+    return redirect(url_for('ana_sayfa'))
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port, debug=True)
