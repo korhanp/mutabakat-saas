@@ -134,6 +134,18 @@ HTML_SABLONU = """
 </html>
 """
 
+# Hatalı try-except yapısını önleyen temiz veri çekme fonksiyonu
+def trendyol_api_tara(satici_id, api_key, api_secret):
+    url = f"https://trendyol.com{satici_id}/packages"
+    headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
+    params = {"status": "Delivered", "size": 50}
+    
+    try:
+        res = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
+        return res
+    except Exception:
+        return None
+
 @app.route('/')
 def ana_sayfa():
     magaza_adi = session.get('magaza_adi')
@@ -150,19 +162,6 @@ def ana_sayfa():
     toplam_siparis = 0
     
     if oturum_aktif:
-        url = f"https://trendyol.com{satici_id}/packages"
-        headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
-        params = {"status": "Delivered", "size": 50}
+        response = trendyol_api_tara(satici_id, api_key, api_secret)
         
-        try:
-            response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
-            if response.status_code == 200:
-                trendyol_data = response.json()
-                siparisler = trendyol_data.get("content", [])
-                toplam_siparis = len(siparisler)
-                
-                for siparis in siparisler:
-                    order_no = siparis.get("orderNumber")
-                    for urun in siparis.get("lines", []):
-                        gercek_desi = 2.0 
-                        urun_adi = urun.get("productName", "E-Ticaret Ürünü")
+        if response is not None and response.status_code == 200:
