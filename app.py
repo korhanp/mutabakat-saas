@@ -4,7 +4,9 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 app = Flask(__name__)
 
 # Oturum (Session) verilerini şifrelemek için rastgele güvenli bir anahtar
-app.secret_key = "feedbackloop_super_secret_safe_key_12345"
+import os
+app.secret_key = os.urandom(24)
+
 
 # Örnek Trendyol Sipariş Verisi (Analiz motoru için)
 sahte_trendyol_verisi = [
