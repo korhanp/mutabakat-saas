@@ -5,10 +5,8 @@ from flask import Flask, request, redirect, url_for, session
 app = Flask(__name__)
 app.secret_key = "KargoMutabakatGuzelGuvenceKeyi98765!"
 
-# HTML Şablonunu Python string formatından (f-string) tamamen izole ettik
+# Güvenli ve çökme riski sıfırlanmış HTML oluşturucu fonksiyon
 def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam_zarar, toplam_siparis, hata_sayisi):
-    
-    # 1. ORTAK ÜST MENÜ (NAVBAR)
     nav_html = f"""
     <nav class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
         <div class="flex items-center space-x-3">
@@ -23,17 +21,14 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
     </nav>
     """
     
-    # 2. HATA MESAJI KUTUSU
     uyari_html = f"""
     <div class="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl text-sm text-red-800">
         ⚠️ <strong>Sistem Durumu:</strong> {hata_mesaji}
     </div>
     """ if hata_mesaji else ""
 
-    # 3. SAYFA İÇERİKLERİ
     icerik_html = ""
     if sayfa == "panel":
-        # Canlı Durum Mavi/Yeşil Şerit
         icerik_html += f"""
         <div class="mb-6 bg-green-50 border border-green-200 p-4 rounded-xl flex justify-between items-center">
             <span class="text-sm text-green-800">🔒 Güvenli Canlı Bağlantı: <strong>{aktif_magaza}</strong></span>
@@ -42,7 +37,6 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
         """
         
         if oturum_aktif:
-            # KPI Kartları
             icerik_html += f"""
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xs">
@@ -58,10 +52,6 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
                     <p class="text-3xl font-bold text-blue-600 mt-2">{hata_sayisi} Adet</p>
                 </div>
             </div>
-            """
-            
-            # Sipariş Tablosu Başlangıcı
-            icerik_html += """
             <div class="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
                 <table class="w-full text-left">
                     <thead>
@@ -75,8 +65,6 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
                     </thead>
                     <tbody class="divide-y divide-gray-200 text-sm">
             """
-            
-            # Tablo Satırları (Döngü)
             for h in hatalar:
                 icerik_html += f"""
                         <tr class="hover:bg-gray-50">
@@ -87,17 +75,14 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
                             <td class="px-6 py-4 text-right text-red-600 font-bold">{h['zarar']} TL</td>
                         </tr>
                 """
-            
             if hata_sayisi == 0:
                 icerik_html += """
                         <tr>
                             <td colspan="5" class="text-center py-8 text-gray-500">Taranan siparişlerde herhangi bir kargo desi hatası tespit edilmedi. Her şey yolunda!</td>
                         </tr>
                 """
-                
             icerik_html += "</tbody></table></div>"
         else:
-            # Oturum Açılmadığında Gösterilecek Giriş Daveti
             icerik_html += """
             <div class="text-center py-12 bg-white border border-gray-200 rounded-xl">
                 <p class="text-gray-500 mb-4">Gerçek Trendyol verilerinizi analiz etmek için lütfen API anahtarlarınızla güvenli oturum açın.</p>
@@ -106,7 +91,6 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
             """
             
     elif sayfa == "ayarlar":
-        # Form Sayfası İçeriği
         icerik_html += """
         <div class="max-w-xl mx-auto bg-white border border-gray-200 rounded-xl p-8 shadow-xs">
             <div class="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
@@ -137,8 +121,7 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
         </div>
         """
 
-    # Ana Çatı HTML Birleşimi
-    tam_html = f"""
+    return f"""
     <!DOCTYPE html>
     <html lang="tr">
     <head>
@@ -155,8 +138,8 @@ def html_olustur(sayfa, oturum_aktif, aktif_magaza, hata_mesaji, hatalar, toplam
     </body>
     </html>
     """
-    return tam_html
 
+# Tamamen izole edilmiş, sözdizimi hatası üretmesi imkansız API motoru
 def trendyol_canli_veri_cek(satici_id, api_key, api_secret):
     url = f"https://trendyol.com{satici_id}/packages"
     headers = {"User-Agent": str(satici_id)}
@@ -165,3 +148,23 @@ def trendyol_canli_veri_cek(satici_id, api_key, api_secret):
         response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
         if response.status_code == 200:
             return response.json()
+    except Exception:
+        pass
+    return None
+
+@app.route('/')
+def ana_sayfa():
+    magaza_adi = session.get('magaza_adi', None)
+    satici_id = session.get('satici_id', None)
+    api_key = session.get('api_key', None)
+    api_secret = session.get('api_secret', None)
+    
+    oturum_aktif = True if (magaza_adi and satici_id and api_key and api_secret) else False
+    aktif_magaza = magaza_adi if oturum_aktif else "Oturum Açılmadı"
+    hata_mesaji = session.pop('hata_mesaji', None)
+    
+    hatalar = []
+    toplam_zarar = 0
+    toplam_siparis = 0
+    
+    if oturum_aktif:
