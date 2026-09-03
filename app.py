@@ -3,14 +3,7 @@ import requests
 from flask import Flask, render_template_string, request, redirect, url_for, session
 
 app = Flask(__name__)
-
-# Güvenli Oturum Ayarları
-app.config.update(
-    SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
-    SESSION_COOKIE_SECURE=False,
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax'
-)
+app.secret_key = "KargoMutabakatGuzelGuvenceKeyi98765!"
 
 HTML_SABLONU = """
 <!DOCTYPE html>
@@ -149,9 +142,18 @@ def ana_sayfa():
     toplam_zarar = 0
     toplam_siparis = 0
     
-    if oturum_aktif:
-        url = f"https://trendyol.com{satici_id}/packages"
-        headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
-        params = {"status": "Delivered", "size": 50}
+    if not oturum_aktif:
+        return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=[], toplam_zarar=0, toplam_siparis=0, aktif_magaza=aktif_magaza, oturum_aktif=False, hata_mesaji=hata_mesaji)
+
+    url = f"https://trendyol.com{satici_id}/packages"
+    headers = {"User-Agent": str(satici_id)}
+    params = {"status": "Delivered", "size": 50}
+    
+    try:
+        response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
+        if response.status_code != 200:
+            session.clear()
+            return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=[], toplam_zarar=0, toplam_siparis=0, aktif_magaza="Oturum Açılmadı", oturum_aktif=False, hata_mesaji="Trendyol API şifreleriniz hatalı veya yetkiniz yok.")
         
-        try:
+        trendyol_data = response.json()
+        siparisler = trendyol_data.get("content", [])
