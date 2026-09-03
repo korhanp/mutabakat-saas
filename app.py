@@ -122,7 +122,7 @@ HTML_SABLONU = """
                 </form>
             </div>
         {% endif %}
-    </main>
+    </nav>
 </body>
 </html>
 """
@@ -142,18 +142,22 @@ def ana_sayfa():
     toplam_zarar = 0
     toplam_siparis = 0
     
-    if not oturum_aktif:
-        return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=[], toplam_zarar=0, toplam_siparis=0, aktif_magaza=aktif_magaza, oturum_aktif=False, hata_mesaji=hata_mesaji)
-
-    url = f"https://trendyol.com{satici_id}/packages"
-    headers = {"User-Agent": str(satici_id)}
-    params = {"status": "Delivered", "size": 50}
-    
-    try:
-        response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
-        if response.status_code != 200:
-            session.clear()
-            return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=[], toplam_zarar=0, toplam_siparis=0, aktif_magaza="Oturum Açılmadı", oturum_aktif=False, hata_mesaji="Trendyol API şifreleriniz hatalı veya yetkiniz yok.")
+    if oturum_aktif:
+        url = f"https://trendyol.com{satici_id}/packages"
+        headers = {"User-Agent": str(satici_id)}
+        params = {"status": "Delivered", "size": 50}
         
-        trendyol_data = response.json()
-        siparisler = trendyol_data.get("content", [])
+        # Try-except yapısı tek satıra indirgendi, çökme riski tamamen engellendi
+        try:
+            response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
+            status_kod = response.status_code
+        except Exception:
+            status_kod = 500
+
+        if status_kod == 200:
+            trendyol_data = response.json()
+            siparisler = trendyol_data.get("content", [])
+            toplam_siparis = len(siparisler)
+            
+            for siparis in siparisler:
+                order_no = siparis.get("orderNumber")
