@@ -134,12 +134,10 @@ HTML_SABLONU = """
 </html>
 """
 
-# Hatalı try-except yapısını önleyen temiz veri çekme fonksiyonu
 def trendyol_api_tara(satici_id, api_key, api_secret):
     url = f"https://trendyol.com{satici_id}/packages"
     headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
     params = {"status": "Delivered", "size": 50}
-    
     try:
         res = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
         return res
@@ -165,3 +163,4 @@ def ana_sayfa():
         response = trendyol_api_tara(satici_id, api_key, api_secret)
         
         if response is not None and response.status_code == 200:
+            trendyol_data = response.json()
