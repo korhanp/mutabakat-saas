@@ -147,15 +147,40 @@ def ana_sayfa():
         headers = {"User-Agent": str(satici_id)}
         params = {"status": "Delivered", "size": 50}
         
-        status_kod = 500
+        # Riskli try-except yapısı tamamen ayrıştırıldı
+        trendyol_veri = None
         try:
             response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
-            status_kod = response.status_code
+            if response.status_code == 200:
+                trendyol_veri = response.json()
         except Exception:
-            status_kod = 500
+            trendyol_veri = None
 
-        if status_kod == 200:
-            try:
-                trendyol_data = response.json()
-                siparisler = trendyol_data.get("content", [])
-                toplam_siparis = len(siparisler)
+        if trendyol_veri:
+            siparisler = trendyol_veri.get("content", [])
+            toplam_siparis = len(siparisler)
+            
+            for siparis in siparisler:
+                order_no = siparis.get("orderNumber")
+                for urun in siparis.get("lines", []):
+                    gercek_desi = 2.0 
+                    urun_adi = urun.get("productName", "E-Ticaret Ürünü")
+                    for kargo in siparis.get("packageHistories", []):
+                        faturadaki_desi = kargo.get("invoiceDesi", 0.0)
+                        kesilen_kargo = kargo.get("cargoFee", 0.0)
+                        if faturadaki_desi > gercek_desi and faturadaki_desi > 0:
+                            zarar = round((kesilen_kargo / faturadaki_desi) * (faturadaki_desi - gercek_desi), 2)
+                            toplam_zarar += zarar
+                            hatalar.append({
+                                "order_no": order_no, "urun_adi": urun_adi,
+                                "gercek_desi": gercek_desi, "faturadaki_desi": faturadaki_desi, "zarar": zarar
+                            })
+        else:
+            session.clear()
+            oturum_aktif = False
+            aktif_magaza = "Oturum Açılmadı"
+            hata_mesaji = "Trendyol API şifreleriniz hatalı veya sunucuya bağlanılamadı."
+
+    return render_template_string(
+        HTML_SABLONU, 
+        sayfa='panel', 
