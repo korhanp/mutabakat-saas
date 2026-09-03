@@ -4,7 +4,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
-# Güvenli Oturum Ayarları
+# Güvenli Oturum Ayarları (500 Hatalarını Engeller)
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
     SESSION_COOKIE_SECURE=True,
@@ -38,7 +38,7 @@ HTML_SABLONU = """
     <main class="max-w-7xl mx-auto px-4 py-8">
         {% if hata_mesaji %}
         <div class="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl text-sm text-red-800">
-            ⚠️ <strong>Bağlantı Durumu:</strong> {{ hata_mesaji }}
+            ⚠️ <strong>Sistem Durumu:</strong> {{ hata_mesaji }}
         </div>
         {% endif %}
 
