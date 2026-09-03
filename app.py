@@ -4,7 +4,6 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
-# Güvenli Oturum Ayarları
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
     SESSION_COOKIE_SECURE=True,
@@ -12,7 +11,6 @@ app.config.update(
     SESSION_COOKIE_SAMESITE='Lax'
 )
 
-# HTML Arayüz Şablonu (Sıfır Sahte Veri - Tamamen Canlı)
 HTML_SABLONU = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -37,7 +35,6 @@ HTML_SABLONU = """
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Hata Mesajı Gösterimi -->
         {% if hata_mesaji %}
         <div class="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl text-sm text-red-800">
             ⚠️ <strong>Bağlantı Hatası:</strong> {{ hata_mesaji }}
@@ -45,7 +42,6 @@ HTML_SABLONU = """
         {% endif %}
 
         {% if sayfa == 'panel' %}
-            <!-- DASHBOARD EKRANI -->
             <div class="mb-6 bg-green-50 border border-green-200 p-4 rounded-xl flex justify-between items-center">
                 <span class="text-sm text-green-800">🔒 Güvenli Canlı Bağlantı: <strong>{{ aktif_magaza }}</strong></span>
                 <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Canlı API Modu</span>
@@ -104,7 +100,6 @@ HTML_SABLONU = """
             {% endif %}
 
         {% elif sayfa == 'ayarlar' %}
-            <!-- API GİRİŞ EKRANI -->
             <div class="max-w-xl mx-auto bg-white border border-gray-200 rounded-xl p-8 shadow-xs">
                 <div class="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
                     ℹ️ <strong>Müşteri Bilgilendirmesi:</strong> Gireceğiniz API anahtarları hiçbir veritabanına kaydedilmez. Sadece bu seanstaki canlı analiz için Trendyol'a anlık sorulur.
@@ -154,15 +149,12 @@ def ana_sayfa():
     toplam_siparis = 0
     
     if oturum_aktif:
-        # GERÇEK TRENDYOL API BAĞLANTISI (Sipariş Paketlerini Çekme)
         url = f"https://trendyol.com{satici_id}/packages"
         headers = {"User-Agent": f"{satici_id} - KargoMutabakatSaaS"}
-        params = {"status": "Delivered", "size": 50} # Son teslim edilen 50 siparişi tara
+        params = {"status": "Delivered", "size": 50}
         
         try:
-            # HTTP Basic Authentication ile Trendyol'a güvenli istek atılıyor
             response = requests.get(url, headers=headers, params=params, auth=(api_key, api_secret), timeout=10)
-            
             if response.status_code == 200:
                 trendyol_data = response.json()
                 siparisler = trendyol_data.get("content", [])
@@ -170,16 +162,18 @@ def ana_sayfa():
                 
                 for siparis in siparisler:
                     order_no = siparis.get("orderNumber")
-                    
-                    # Ürün detayları ve kargo geçmişi karşılaştırılıyor
                     for urun in siparis.get("lines", []):
-                        # Trendyol API'sinde varsayılan desiyi 2.0 kabul edip faturayla kıyaslıyoruz
                         gercek_desi = 2.0 
                         urun_adi = urun.get("productName", "E-Ticaret Ürünü")
-                        
                         for kargo in siparis.get("packageHistories", []):
-                            # Kargo şirketinin faturaya yansıttığı desi
                             faturadaki_desi = kargo.get("invoiceDesi", 0.0)
                             kesilen_kargo = kargo.get("cargoFee", 0.0)
-                            
-                            # EĞER KARGO ŞİRKETİ FAZLA DESİ GİRDİYSE YAKALA
+                            if faturadaki_desi > gercek_desi and faturadaki_desi > 0:
+                                zarar = round((kesilen_kargo / faturadaki_desi) * (faturadaki_desi - gercek_desi), 2)
+                                toplam_zarar += zarar
+                                hatalar.append({
+                                    "order_no": order_no, "urun_adi": urun_adi,
+                                    "gercek_desi": gercek_desi, "faturadaki_desi": faturadaki_desi, "zarar": zarar
+                                })
+            else:
+                return render_template_string(HTML_SABLONU, sayfa='panel', hatalar=[], toplam_zarar=0, toplam_siparis=0, aktif_magaza="Oturum Açılmadı", oturum_aktif=False, hata_mesaji="Trendyol API şifreleriniz hatalı veya yetkiniz yok.")
