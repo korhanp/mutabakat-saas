@@ -4,7 +4,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 
 app = Flask(__name__)
 
-# Güvenli Oturum Ayarları (500 Hatalarını Engeller)
+# Güvenli Oturum Ayarları
 app.config.update(
     SECRET_KEY="KargoMutabakatGuzelGuvenceKeyi98765!",
     SESSION_COOKIE_SECURE=True,
@@ -143,8 +143,8 @@ def ana_sayfa():
     
     oturum_aktif = True if (magaza_adi and satici_id and api_key and api_secret) else False
     aktif_magaza = magaza_adi if oturum_aktif else "Oturum Açılmadı"
-    hata_mesaji = session.pop('hata_mesaji', None)
     
+    hata_mesaji = session.pop('hata_mesaji', None)
     hatalar = []
     toplam_zarar = 0
     toplam_siparis = 0
@@ -166,15 +166,3 @@ def ana_sayfa():
                     for urun in siparis.get("lines", []):
                         gercek_desi = 2.0 
                         urun_adi = urun.get("productName", "E-Ticaret Ürünü")
-                        for kargo in siparis.get("packageHistories", []):
-                            faturadaki_desi = kargo.get("invoiceDesi", 0.0)
-                            kesilen_kargo = kargo.get("cargoFee", 0.0)
-                            if faturadaki_desi > gercek_desi and faturadaki_desi > 0:
-                                zarar = round((kesilen_kargo / faturadaki_desi) * (faturadaki_desi - gercek_desi), 2)
-                                toplam_zarar += zarar
-                                hatalar.append({
-                                    "order_no": order_no, "urun_adi": urun_adi,
-                                    "gercek_desi": gercek_desi, "faturadaki_desi": faturadaki_desi, "zarar": zarar
-                                })
-            else:
-                hata_mesaji = "Trendyol API şifreleriniz hatalı veya yetkiniz yok."
